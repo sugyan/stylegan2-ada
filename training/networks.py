@@ -69,13 +69,15 @@ def conv2d(x, w, up=False, down=False, resample_kernel=None, padding=0):
     assert kernel >= 1 and kernel % 2 == 1
 
     w = tf.cast(w, x.dtype)
+    x = tf.transpose(x, [0, 2, 3, 1])
     if up:
-        x = upsample_conv_2d(x, w, data_format='NCHW', k=resample_kernel, padding=padding)
+        x = upsample_conv_2d(x, w, data_format='NHWC', k=resample_kernel, padding=padding)
     elif down:
-        x = conv_downsample_2d(x, w, data_format='NCHW', k=resample_kernel, padding=padding)
+        x = conv_downsample_2d(x, w, data_format='NHWC', k=resample_kernel, padding=padding)
     else:
         padding_mode = {0: 'SAME', -(kernel // 2): 'VALID'}[padding]
-        x = tf.nn.conv2d(x, w, data_format='NCHW', strides=[1,1,1,1], padding=padding_mode)
+        x = tf.nn.conv2d(x, w, data_format='NHWC', strides=[1,1,1,1], padding=padding_mode)
+    x = tf.transpose(x, [0, 3, 1, 2])
     return x
 
 #----------------------------------------------------------------------------

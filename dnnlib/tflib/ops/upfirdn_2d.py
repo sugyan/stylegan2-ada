@@ -18,7 +18,7 @@ def _get_plugin():
 
 #----------------------------------------------------------------------------
 
-def upfirdn_2d(x, k, upx=1, upy=1, downx=1, downy=1, padx0=0, padx1=0, pady0=0, pady1=0, impl='cuda'):
+def upfirdn_2d(x, k, upx=1, upy=1, downx=1, downy=1, padx0=0, padx1=0, pady0=0, pady1=0, impl='ref'):
     r"""Pad, upsample, FIR filter, and downsample a batch of 2D images.
 
     Accepts a batch of 2D images of the shape `[majorDim, inH, inW, minorDim]`
@@ -95,7 +95,9 @@ def _upfirdn_2d_ref(x, k, upx, upy, downx, downy, padx0, padx1, pady0, pady1):
     x = tf.transpose(x, [0, 3, 1, 2])
     x = tf.reshape(x, [-1, 1, inH * upy + pady0 + pady1, inW * upx + padx0 + padx1])
     w = tf.constant(k[::-1, ::-1, np.newaxis, np.newaxis], dtype=x.dtype)
-    x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID', data_format='NCHW')
+    x = tf.transpose(x, [0, 2, 3, 1])
+    x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID', data_format='NHWC')
+    x = tf.transpose(x, [0, 3, 1, 2])
     x = tf.reshape(x, [-1, minorDim, inH * upy + pady0 + pady1 - kernelH + 1, inW * upx + padx0 + padx1 - kernelW + 1])
     x = tf.transpose(x, [0, 2, 3, 1])
 
@@ -144,7 +146,7 @@ def _upfirdn_2d_cuda(x, k, upx, upy, downx, downy, padx0, padx1, pady0, pady1):
 
 #----------------------------------------------------------------------------
 
-def filter_2d(x, k, gain=1, padding=0, data_format='NCHW', impl='cuda'):
+def filter_2d(x, k, gain=1, padding=0, data_format='NCHW', impl='ref'):
     r"""Filter a batch of 2D images with the given FIR filter.
 
     Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
@@ -173,7 +175,7 @@ def filter_2d(x, k, gain=1, padding=0, data_format='NCHW', impl='cuda'):
 
 #----------------------------------------------------------------------------
 
-def upsample_2d(x, k=None, factor=2, gain=1, padding=0, data_format='NCHW', impl='cuda'):
+def upsample_2d(x, k=None, factor=2, gain=1, padding=0, data_format='NCHW', impl='ref'):
     r"""Upsample a batch of 2D images with the given filter.
 
     Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
@@ -208,7 +210,7 @@ def upsample_2d(x, k=None, factor=2, gain=1, padding=0, data_format='NCHW', impl
 
 #----------------------------------------------------------------------------
 
-def downsample_2d(x, k=None, factor=2, gain=1, padding=0, data_format='NCHW', impl='cuda'):
+def downsample_2d(x, k=None, factor=2, gain=1, padding=0, data_format='NCHW', impl='ref'):
     r"""Downsample a batch of 2D images with the given filter.
 
     Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
@@ -242,7 +244,7 @@ def downsample_2d(x, k=None, factor=2, gain=1, padding=0, data_format='NCHW', im
 
 #----------------------------------------------------------------------------
 
-def upsample_conv_2d(x, w, k=None, factor=2, gain=1, padding=0, data_format='NCHW', impl='cuda'):
+def upsample_conv_2d(x, w, k=None, factor=2, gain=1, padding=0, data_format='NCHW', impl='ref'):
     r"""Fused `upsample_2d()` followed by `tf.nn.conv2d()`.
 
     Padding is performed only once at the beginning, not between the operations.
@@ -310,7 +312,7 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1, padding=0, data_format='NCH
 
 #----------------------------------------------------------------------------
 
-def conv_downsample_2d(x, w, k=None, factor=2, gain=1, padding=0, data_format='NCHW', impl='cuda'):
+def conv_downsample_2d(x, w, k=None, factor=2, gain=1, padding=0, data_format='NCHW', impl='ref'):
     r"""Fused `tf.nn.conv2d()` followed by `downsample_2d()`.
 
     Padding is performed only once at the beginning, not between the operations.
@@ -391,7 +393,7 @@ class _FilterKernel:
             self.ky = None
             self.kxy = k * gain
 
-def _simple_upfirdn_2d(x, k, up=1, down=1, pad0=0, pad1=0, data_format='NCHW', impl='cuda'):
+def _simple_upfirdn_2d(x, k, up=1, down=1, pad0=0, pad1=0, data_format='NCHW', impl='ref'):
     assert isinstance(k, _FilterKernel)
     assert data_format in ['NCHW', 'NHWC']
     assert x.shape.rank == 4
