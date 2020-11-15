@@ -3,20 +3,24 @@ import os
 import pickle
 
 import tensorflow as tf
-from dnnlib import tflib
+from dnnlib import tflib, EasyDict
 
 
 def convert(network_pkl, save_dir, res=None, truncation_psi=None):
     with tf.compat.v1.Session() as sess:
-        fmaps = 1 if res >= 512 else 0.5
+        spec = EasyDict(map=2, fmaps=1 if res >= 512 else 0.5)
+        G_args = EasyDict(
+            func_name="training.networks.G_main",
+            fmap_base=int(spec.fmaps * 16384),
+            mapping_layers=spec.map,
+        )
         G = tflib.Network(
             "G",
-            func_name="training.networks.G_main",
             num_channels=3,
             resolution=res,
-            fmap_base=int(fmaps * 16384),
             use_noise=False,
             truncation_psi=truncation_psi,
+            **G_args,
         )
         Gs = G.clone("Gs")
         with open(network_pkl, "rb") as fp:
