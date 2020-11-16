@@ -84,7 +84,10 @@ def _upfirdn_2d_ref(x, k, upx, upy, downx, downy, padx0, padx1, pady0, pady1):
 
     # Upsample (insert zeros).
     x = tf.reshape(x, [-1, inH, 1, inW, 1, minorDim])
-    x = tf.pad(x, [[0, 0], [0, 0], [0, upy - 1], [0, 0], [0, upx - 1], [0, 0]])
+    if upy == 2:
+        x = tf.concat([x, tf.zeros(tf.shape(x))], axis=2)
+    if upx == 2:
+        x = tf.concat([x, tf.zeros(tf.shape(x))], axis=4)
     x = tf.reshape(x, [-1, inH * upy, inW * upx, minorDim])
 
     # Pad (crop if negative).
