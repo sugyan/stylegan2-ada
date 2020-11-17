@@ -19,6 +19,7 @@ def convert(network_pkl, save_dir, res=None, truncation_psi=None):
             num_channels=3,
             resolution=res,
             use_noise=False,
+            return_dlatents=True,
             truncation_psi=truncation_psi,
             **G_args,
         )
@@ -45,6 +46,14 @@ def convert(network_pkl, save_dir, res=None, truncation_psi=None):
         signature_def_map = {
             default: tf.compat.v1.saved_model.build_signature_def(
                 {"latents": tf.saved_model.utils.build_tensor_info(inputs[0])},
+                {"images": tf.saved_model.utils.build_tensor_info(images)},
+            ),
+            "mapping": tf.compat.v1.saved_model.build_signature_def(
+                {"latents": tf.saved_model.utils.build_tensor_info(inputs[0])},
+                {"dlatents": tf.saved_model.utils.build_tensor_info(outputs[1])},
+            ),
+            "synthesis": tf.compat.v1.saved_model.build_signature_def(
+                {"dlatents": tf.saved_model.utils.build_tensor_info(outputs[1])},
                 {"images": tf.saved_model.utils.build_tensor_info(images)},
             ),
         }
