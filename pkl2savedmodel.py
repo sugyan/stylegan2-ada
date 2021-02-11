@@ -1,12 +1,15 @@
 import argparse
-import os
+import pathlib
 import pickle
 
 import tensorflow as tf
-from dnnlib import tflib, EasyDict
+from dnnlib.tflib.network import Network
+from dnnlib.util import EasyDict
 
 
-def convert(network_pkl, save_dir, res=None, truncation_psi=None):
+def convert(
+    network_pkl: pathlib.Path, save_dir: pathlib.Path, res: int, truncation_psi: float,
+) -> None:
     with tf.compat.v1.Session() as sess:
         spec = EasyDict(map=2, fmaps=1 if res >= 512 else 0.5)
         G_args = EasyDict(
@@ -14,7 +17,7 @@ def convert(network_pkl, save_dir, res=None, truncation_psi=None):
             fmap_base=int(spec.fmaps * 16384),
             mapping_layers=spec.map,
         )
-        G = tflib.Network(
+        G = Network(
             "G",
             num_channels=3,
             resolution=res,
@@ -24,7 +27,7 @@ def convert(network_pkl, save_dir, res=None, truncation_psi=None):
             **G_args,
         )
         Gs = G.clone("Gs")
-        with open(network_pkl, "rb") as fp:
+        with open(str(network_pkl.resolve()), "rb") as fp:
             _, _, rGs = pickle.load(fp)
         Gs.copy_vars_from(rGs)
 
@@ -41,7 +44,7 @@ def convert(network_pkl, save_dir, res=None, truncation_psi=None):
         images = tf.transpose(outputs[0], [0, 2, 3, 1])
         images = tf.saturate_cast((images + 1.0) * 127.5, tf.uint8)
 
-        builder = tf.compat.v1.saved_model.Builder(save_dir)
+        builder = tf.compat.v1.saved_model.Builder(str(save_dir.resolve()))
         default = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
         signature_def_map = {
             default: tf.compat.v1.saved_model.build_signature_def(
@@ -65,8 +68,8 @@ def convert(network_pkl, save_dir, res=None, truncation_psi=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("network_pkl", type=str)
-    parser.add_argument("save_dir", type=str)
+    parser.add_argument("network_pkl", type=pathlib.Path)
+    parser.add_argument("save_dir", type=pathlib.Path)
     parser.add_argument(
         "--res",
         help="Dataset resolution (default: 256)",
@@ -83,7 +86,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if os.path.exists(args.save_dir):
-        print(f"save_dir {args.save_dir} already exists")
+    if args.save_dir.exists():
+        raise FileExistsError(args.save_dir.resolve())
     else:
         convert(**vars(args))
